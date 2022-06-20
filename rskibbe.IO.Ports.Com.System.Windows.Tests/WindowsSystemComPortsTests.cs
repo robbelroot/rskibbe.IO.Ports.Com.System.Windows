@@ -8,17 +8,14 @@ public class WindowsSystemComPortsTests
     }
 
     [Test]
-    public void TestList()
+    public async Task TestList()
     {
         // only if windows is currently having 2 ports..
         // not going to go this way further right now..
         // just a little helper for me during dev
-        var comPorts = new WindowsSystemComPorts();
-        comPorts.Initialized += (s, e) =>
-        {
-            var ports = comPorts.ListUsedPortNamesAsync().Result;
-            Assert.That(ports.Count(), Is.EqualTo(2));
-        };
+        var comPorts = await WindowsSystemComPorts.BuildAsync();
+        var ports = await comPorts.ListUsedPortNamesAsync();
+        Assert.That(ports.Count(), Is.EqualTo(2));
     }
 
 }

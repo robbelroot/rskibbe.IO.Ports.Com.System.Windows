@@ -16,29 +16,23 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     private bool _disposed;
 
-    public WindowsSystemComPorts()
+    protected WindowsSystemComPorts()
     {
         ExistingPorts = new List<string>();
-        Initialize();
     }
 
-    protected async void Initialize()
+    public static async Task<WindowsSystemComPorts> BuildAsync()
     {
+        var winPorts = new WindowsSystemComPorts();
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
-        watcher = new ManagementEventWatcher(QUERY);
+        winPorts.watcher = new ManagementEventWatcher(QUERY);
         // watcher.Stopped += Watcher_Stopped;
-        watcher.EventArrived += Watcher_EventArrived;
-        var usedPortNames = await ListUsedPortNamesAsync();
-        ExistingPorts.AddRange(usedPortNames);
-        watcher.Start();
-        OnInitialized(EventArgs.Empty);
+        winPorts.watcher.EventArrived += winPorts.Watcher_EventArrived;
+        var usedPortNames = await winPorts.ListUsedPortNamesAsync();
+        winPorts.ExistingPorts.AddRange(usedPortNames);
+        winPorts.watcher.Start();
 #pragma warning restore CA1416 // Plattformkompatibilität überprüfen
-    }
-
-    protected void OnInitialized(EventArgs e)
-    {
-        Debug.WriteLine("initialized");
-        Initialized?.Invoke(this, e);
+        return winPorts;
     }
 
     private async void Watcher_EventArrived(object sender, EventArrivedEventArgs e)
@@ -171,8 +165,6 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
             _disposed = true;
         }
     }
-
-    public event EventHandler? Initialized;
 
     public event EventHandler<ComPortEventArgs>? SystemComPortAdded;
 
