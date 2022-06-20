@@ -1,12 +1,12 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net6.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PackageId>rskibbe.IO.Ports.Com.System.Windows</PackageId>
-		<description>A package providing the windows-side needed COM Port tools for parent package rskibbe.IO.Ports.Com</description>
-		<Version>1.0.2</Version>
+		<description>Easily detecting Windows COM port additions and removals with a few lines of code.</description>
+		<Version>1.0.3</Version>
 		<Authors>Robert Skibbe</Authors>
 		<Company>Robert Skibbe</Company>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -15,12 +15,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Include="docs/readme.md" Pack="true" PackagePath="\" />
+		<PackageReference Include="rskibbe.IO.Ports.Com" Version="1.0.3" />
+		<PackageReference Include="System.Management" Version="6.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="rskibbe.IO.Ports.Com" Version="1.0.3" />
-		<PackageReference Include="System.Management" Version="6.0.0" />
+	  <None Update="readme.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 </Project>

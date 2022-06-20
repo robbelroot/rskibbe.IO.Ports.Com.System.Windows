@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Management;
 using System.Text.RegularExpressions;
 
+using ComPorts = rskibbe.IO.Ports.Com.System.Windows.WindowsSystemComPorts;
+
 namespace rskibbe.IO.Ports.Com.System.Windows;
 
 public class WindowsSystemComPorts : ISystemComPorts, IDisposable
