@@ -91,9 +91,11 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
     {
         // change to registry approach / make it like strategy pattern
         // slow AF without scope
-        var scope = "root\\CIMV2";
+        // var scope = "root\\CIMV2";
+        var scope = "\\\\localhost\\root\\CIMV2";
         // "SELECT Name,DeviceID FROM Win32_PnPEntity WHERE ClassGuid=`"{4d36e978-e325-11ce-bfc1-08002be10318}`""
-        var query = "SELECT * FROM WIN32_SerialPort";
+        // var query = "SELECT * FROM WIN32_SerialPort";
+        var query = "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0";
         using var searcher = new ManagementObjectSearcher(scope, query);
         var searchResults = await Task.Run(() => searcher.Get());
         var portObjects = searchResults.Cast<ManagementBaseObject>().ToList();
@@ -104,42 +106,20 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         var usedPortNames = new List<string>();
         foreach (var portObject in portObjects)
         {
-            // var deviceId = "";
-            foreach (var prop in portObject.Properties)
+            var captionProp = portObject["Caption"];
+            if (captionProp == null)
+                continue;
+            var isComPort = captionProp.ToString().Contains("COM");
+            var noEmulator = !captionProp.ToString().Contains("emulator");
+            if (isComPort && noEmulator)
             {
-                var isCaption = prop.Name == "Caption";
-                if (!isCaption)
-                    continue;
-                var isComPort = prop.Value.ToString().Contains("COM");
-                var noEmulator = !prop.Value.ToString().Contains("emulator");
-                if (isComPort && noEmulator)
+                var match = comRegex.Match(captionProp.ToString());
+                if (match.Success)
                 {
-                    var match = comRegex.Match(prop.Value.ToString());
-                    if(match.Success)
-                    {
-                        // could additionally check if port like 300
-                        // but okay for now
-                        usedPortNames.Add(match.Groups[0].Value);
-                        break;
-                    }
+                    var portName = match.Groups[0].Value;
+                    usedPortNames.Add(portName);
                 }
-                //// device id comes before pnpdevice id - sorted a-z
-                //// cuz of this, this loop works like this
-                //if (prop.Name == "DeviceID")
-                //{
-                //    deviceId = prop.Value.ToString();
-                //}
-                //else if (prop.Name == "PNPDeviceID")
-                //{
-                //    var isWindowsAssignedPort = prop.Value.ToString().StartsWith("ACPI\\");
-                //    if (isWindowsAssignedPort)
-                //    {
-                //        usedPortNames.Add(deviceId);
-                //        break;
-                //    }
-                //}
             }
-            break;
         }
         portObjects.ForEach(x => x.Dispose());
         GC.Collect();
