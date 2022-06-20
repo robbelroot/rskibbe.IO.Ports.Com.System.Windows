@@ -16,14 +16,17 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     private bool _disposed;
 
+    protected SynchronizationContext? _synchronizationContext;
+
     protected WindowsSystemComPorts()
     {
         ExistingPorts = new List<string>();
     }
 
-    public static async Task<WindowsSystemComPorts> BuildAsync()
+    public static async Task<WindowsSystemComPorts> BuildAsync(SynchronizationContext? synchronizationContext = null)
     {
         var winPorts = new WindowsSystemComPorts();
+        winPorts._synchronizationContext = synchronizationContext ?? SynchronizationContext.Current;
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         winPorts.watcher = new ManagementEventWatcher(QUERY);
         // watcher.Stopped += Watcher_Stopped;
@@ -66,12 +69,18 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     protected virtual void OnSystemComPortAdded(ComPortEventArgs e)
     {
-        SystemComPortAdded?.Invoke(this, e);
+        _synchronizationContext!.Post(new SendOrPostCallback(x =>
+        {
+            SystemComPortAdded?.Invoke(this, e);
+        }), null);
     }
 
     protected virtual void OnSystemComPortRemoved(ComPortEventArgs e)
     {
-        SystemComPortRemoved?.Invoke(this, e);
+        _synchronizationContext!.Post(new SendOrPostCallback(x =>
+        {
+            SystemComPortRemoved?.Invoke(this, e);
+        }), null);
     }
 
     public async Task<IEnumerable<byte>> ListUsedPortIdsAsync()
