@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="rskibbe.IO.Ports.Com">
+      <HintPath>..\..\rskibbe.IO.Ports.Com\rskibbe.IO.Ports.Com\bin\Debug\net6.0\rskibbe.IO.Ports.Com.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
