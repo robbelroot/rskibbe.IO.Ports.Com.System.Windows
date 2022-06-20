@@ -7,13 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="rskibbe.IO.Ports.Com" Version="1.0.3" />
     <PackageReference Include="System.Management" Version="6.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="rskibbe.IO.Ports.Com">
-      <HintPath>..\..\rskibbe.IO.Ports.Com\rskibbe.IO.Ports.Com\bin\Debug\net6.0\rskibbe.IO.Ports.Com.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>
