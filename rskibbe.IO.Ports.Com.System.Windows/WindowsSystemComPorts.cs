@@ -17,9 +17,24 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     protected SynchronizationContext? _synchronizationContext;
 
+    public WatcherState State { get; protected set; }
+
+    public bool CanStartWatching => State == WatcherState.NONE || State == WatcherState.STOPPED;
+
+    public bool CanStopWatching => State == WatcherState.STOPPED;
+
+    public enum WatcherState
+    {
+        NONE,
+        STARTED,
+        STOP_REQUESTED,
+        STOPPED,
+    }
+
     protected WindowsSystemComPorts()
     {
         ExistingPorts = new List<string>();
+        State = WatcherState.NONE;
     }
 
     public static async Task<WindowsSystemComPorts> BuildAsync(SynchronizationContext? synchronizationContext = null)
@@ -28,13 +43,71 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         winPorts._synchronizationContext = synchronizationContext ?? SynchronizationContext.Current;
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         winPorts.watcher = new ManagementEventWatcher(QUERY);
-        // watcher.Stopped += Watcher_Stopped;
+        winPorts.watcher.Stopped += winPorts.Watcher_Stopped;
         winPorts.watcher.EventArrived += winPorts.Watcher_EventArrived;
         var usedPortNames = await winPorts.ListUsedPortNamesAsync();
         winPorts.ExistingPorts.AddRange(usedPortNames);
-        winPorts.watcher.Start();
 #pragma warning restore CA1416 // Plattformkompatibilität überprüfen
         return winPorts;
+    }
+
+    /// <exception cref="InvalidOperationException">On invalid state</exception>
+    public void StartWatchingPorts()
+    {
+        if (!CanStartWatching)
+            throw new InvalidOperationException($"The watcher cannot be started due to its current state: {State}");
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
+        watcher!.Start();
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
+        State = WatcherState.STARTED;
+        OnStartedWatchingPorts(EventArgs.Empty);
+    }
+
+    protected virtual void OnStartedWatchingPorts(EventArgs e)
+       => StartedWatchingPorts?.Invoke(this, e);
+
+    /// <exception cref="InvalidOperationException">On invalid state</exception>
+    public void StopWatchingPorts()
+    {
+        ThrowIfCantStopWatching();
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
+        watcher!.Stop();
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
+        State = WatcherState.STOP_REQUESTED;
+    }
+
+    /// <exception cref="InvalidOperationException">On invalid state</exception>
+    protected void ThrowIfCantStopWatching()
+    {
+        if (!CanStopWatching)
+            throw new InvalidOperationException($"The watcher cannot be stopped due to its current state: {State}");
+    }
+
+    protected virtual void OnStoppedWatchingPorts(EventArgs e)
+        => StoppedWatchingPorts?.Invoke(this, e);
+
+    /// <exception cref="InvalidOperationException">On invalid state</exception>
+    public Task StopWatchingPortsAsync()
+    {
+        ThrowIfCantStopWatching();
+        var tcs = new TaskCompletionSource();
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
+        StoppedEventHandler? watcherStopped = null;
+        watcherStopped = (s, e) =>
+        {
+            watcher!.Stopped -= watcherStopped;
+            tcs.SetResult();
+        };
+        watcher!.Stopped += watcherStopped;
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
+        StopWatchingPorts();
+        return tcs.Task;
+    }
+
+    private void Watcher_Stopped(object sender, StoppedEventArgs e)
+    {
+        State = WatcherState.STOPPED;
+        OnStoppedWatchingPorts(EventArgs.Empty);
     }
 
     private async void Watcher_EventArrived(object sender, EventArrivedEventArgs e)
@@ -92,9 +165,11 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         // "SELECT Name,DeviceID FROM Win32_PnPEntity WHERE ClassGuid=`"{4d36e978-e325-11ce-bfc1-08002be10318}`""
         // var query = "SELECT * FROM WIN32_SerialPort";
         var query = "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0";
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         using var searcher = new ManagementObjectSearcher(scope, query);
         var searchResults = await Task.Run(() => searcher.Get());
         var portObjects = searchResults.Cast<ManagementBaseObject>().ToList();
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
         // DeviceID - COM1
         // PNPDeviceID - "ACPI\\" = non virtual/original win port?
         // Caption - Kommunikationsanschluss (COM1)
@@ -102,14 +177,21 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         var usedPortNames = new List<string>();
         foreach (var portObject in portObjects)
         {
+            if (portObject == null)
+                continue;
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
             var captionProp = portObject["Caption"];
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
             if (captionProp == null)
                 continue;
-            var isComPort = captionProp.ToString().Contains("COM");
-            var noEmulator = !captionProp.ToString().Contains("emulator");
+            var captionPropValue = captionProp!.ToString();
+            if (captionPropValue == null)
+                continue;
+            var isComPort = captionPropValue!.Contains("COM");
+            var noEmulator = !captionPropValue!.Contains("emulator");
             if (isComPort && noEmulator)
             {
-                var match = comRegex.Match(captionProp.ToString());
+                var match = comRegex.Match(captionPropValue);
                 if (match.Success)
                 {
                     var portName = match.Groups[0].Value;
@@ -117,7 +199,9 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
                 }
             }
         }
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         portObjects.ForEach(x => x.Dispose());
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
         GC.Collect();
         return usedPortNames;
     }
@@ -134,13 +218,19 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         {
             if (disposing)
             {
-                watcher.Stop();
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
+                watcher!.Stop();
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
                 watcher.Dispose();
             }
 
             _disposed = true;
         }
     }
+
+    public event EventHandler? StartedWatchingPorts;
+
+    public event EventHandler? StoppedWatchingPorts;
 
     public event EventHandler<ComPortEventArgs>? SystemComPortAdded;
 
