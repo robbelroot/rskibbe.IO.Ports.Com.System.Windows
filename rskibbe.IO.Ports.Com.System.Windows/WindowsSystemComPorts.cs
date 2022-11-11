@@ -1,16 +1,13 @@
 ﻿using rskibbe.IO.Ports.Com.ValueObjects;
-using System.Diagnostics;
 using System.Management;
 using System.Text.RegularExpressions;
-
-using ComPorts = rskibbe.IO.Ports.Com.System.Windows.WindowsSystemComPorts;
 
 namespace rskibbe.IO.Ports.Com.System.Windows;
 
 public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 {
 
-    const string QUERY = "SELECT * FROM __InstanceOperationEvent WITHIN 1 WHERE TargetInstance ISA 'Win32_SerialPort'";
+    const string QUERY = "SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 or EventType = 3";
 
     protected ManagementEventWatcher? watcher;
 
@@ -42,31 +39,19 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     private async void Watcher_EventArrived(object sender, EventArrivedEventArgs e)
     {
-        var oldComList = new List<string>(ExistingPorts);
-        await RefreshExistingPortsAsync();
-        var deviceInserted = oldComList.Count < ExistingPorts.Count;
-        var deviceRemoved = oldComList.Count > ExistingPorts.Count;
-        if (deviceInserted)
+        var availablePorts = await ListUsedPortNamesAsync();
+        var removedPorts = ExistingPorts.Where(x => !availablePorts.Contains(x)).ToList();
+        var addedPorts = availablePorts.Where(x => !ExistingPorts.Contains(x)).ToList();
+        foreach (var addedPort in addedPorts)
         {
-            var insertedPortName = (ExistingPorts).Except(oldComList).First();
-            var comPortEventArgs = new ComPortEventArgs(insertedPortName);
-            OnSystemComPortAdded(comPortEventArgs);
+            ExistingPorts.Add(addedPort);
+            OnSystemComPortAdded(new ComPortEventArgs(addedPort));
         }
-        else if (deviceRemoved)
+        foreach (var removedPort in removedPorts)
         {
-            var removedPortName = oldComList.Except(ExistingPorts).First();
-            var comPortEventArgs = new ComPortEventArgs(removedPortName);
-            OnSystemComPortRemoved(comPortEventArgs);
+            ExistingPorts.Remove(removedPort);
+            OnSystemComPortRemoved(new ComPortEventArgs(removedPort));
         }
-        else
-            Debug.WriteLine($"Not changed - wrong WMI query?");
-    }
-
-    protected async Task RefreshExistingPortsAsync()
-    {
-        ExistingPorts.Clear();
-        var usedPortNames = await ListUsedPortNamesAsync();
-        ExistingPorts.AddRange(usedPortNames);
     }
 
     protected virtual void OnSystemComPortAdded(ComPortEventArgs e)
@@ -103,7 +88,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         // change to registry approach / make it like strategy pattern
         // slow AF without scope
         // var scope = "root\\CIMV2";
-        var scope = "\\\\localhost\\root\\CIMV2";
+        var scope = @"\\localhost\root\CIMV2";
         // "SELECT Name,DeviceID FROM Win32_PnPEntity WHERE ClassGuid=`"{4d36e978-e325-11ce-bfc1-08002be10318}`""
         // var query = "SELECT * FROM WIN32_SerialPort";
         var query = "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0";
