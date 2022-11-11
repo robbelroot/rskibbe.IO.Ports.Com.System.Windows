@@ -11,7 +11,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     protected ManagementEventWatcher? watcher;
 
-    protected List<string> ExistingPorts { get; set; }
+    public List<string> ExistingPorts { get; protected set; }
 
     private bool _disposed;
 
