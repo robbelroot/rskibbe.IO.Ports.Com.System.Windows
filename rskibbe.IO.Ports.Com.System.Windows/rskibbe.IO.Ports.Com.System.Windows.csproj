@@ -6,7 +6,7 @@
 		<Nullable>enable</Nullable>
 		<PackageId>rskibbe.IO.Ports.Com.System.Windows</PackageId>
 		<description>Easily detecting Windows COM port additions and removals with a few lines of code.</description>
-		<Version>1.0.4</Version>
+		<Version>1.0.5</Version>
 		<Authors>Robert Skibbe</Authors>
 		<Company>Robert Skibbe</Company>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
