@@ -4,37 +4,32 @@ using System.Text.RegularExpressions;
 
 namespace rskibbe.IO.Ports.Com.System.Windows;
 
-public class WindowsSystemComPorts : ISystemComPorts, IDisposable
+public class WindowsSystemComPorts : SystemComPorts, IDisposable
 {
 
     const string QUERY = "SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 or EventType = 3";
 
     protected ManagementEventWatcher? watcher;
 
-    public List<string> ExistingPorts { get; protected set; }
+    public override List<string> ExistingPorts { get; }
 
     private bool _disposed;
 
     protected SynchronizationContext? _synchronizationContext;
 
-    public WatcherState State { get; protected set; }
+    public ComWatcherState State { get; protected set; }
 
-    public bool CanStartWatching => State == WatcherState.NONE || State == WatcherState.STOPPED;
+    public bool CanStartWatching => State == ComWatcherState.NONE || State == ComWatcherState.STOPPED;
 
-    public bool CanStopWatching => State == WatcherState.STOPPED;
+    public bool CanStopWatching => State == ComWatcherState.STOPPED;
 
-    public enum WatcherState
-    {
-        NONE,
-        STARTED,
-        STOP_REQUESTED,
-        STOPPED,
-    }
+    public bool IgnoreComOne { get; set; }
 
     protected WindowsSystemComPorts()
     {
         ExistingPorts = new List<string>();
-        State = WatcherState.NONE;
+        State = ComWatcherState.NONE;
+        IgnoreComOne = true;
     }
 
     public static async Task<WindowsSystemComPorts> BuildAsync(SynchronizationContext? synchronizationContext = null)
@@ -59,7 +54,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         watcher!.Start();
 #pragma warning restore CA1416 // Plattformkompatibilität überprüfen
-        State = WatcherState.STARTED;
+        State = ComWatcherState.STARTED;
         OnStartedWatchingPorts(EventArgs.Empty);
     }
 
@@ -73,7 +68,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         watcher!.Stop();
 #pragma warning restore CA1416 // Plattformkompatibilität überprüfen
-        State = WatcherState.STOP_REQUESTED;
+        State = ComWatcherState.STOP_REQUESTED;
     }
 
     /// <exception cref="InvalidOperationException">On invalid state</exception>
@@ -106,7 +101,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     private void Watcher_Stopped(object sender, StoppedEventArgs e)
     {
-        State = WatcherState.STOPPED;
+        State = ComWatcherState.STOPPED;
         OnStoppedWatchingPorts(EventArgs.Empty);
     }
 
@@ -143,7 +138,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         }), null);
     }
 
-    public async Task<IEnumerable<byte>> ListUsedPortIdsAsync()
+    public override async Task<IEnumerable<byte>> ListUsedPortIdsAsync()
     {
         var usedPortNames = await ListUsedPortNamesAsync();
         var usedPortIds = new List<byte>();
@@ -156,7 +151,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
         return usedPortIds;
     }
 
-    public async Task<IEnumerable<string>> ListUsedPortNamesAsync()
+    public override async Task<IEnumerable<string>> ListUsedPortNamesAsync()
     {
         // change to registry approach / make it like strategy pattern
         // slow AF without scope
@@ -195,7 +190,8 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
                 if (match.Success)
                 {
                     var portName = match.Groups[0].Value;
-                    usedPortNames.Add(portName);
+                    if (portName != "COM1" || portName == "COM1" && !IgnoreComOne)
+                        usedPortNames.Add(portName);
                 }
             }
         }
@@ -232,7 +228,7 @@ public class WindowsSystemComPorts : ISystemComPorts, IDisposable
 
     public event EventHandler? StoppedWatchingPorts;
 
-    public event EventHandler<ComPortEventArgs>? SystemComPortAdded;
+    public override event EventHandler<ComPortEventArgs>? SystemComPortAdded;
 
-    public event EventHandler<ComPortEventArgs>? SystemComPortRemoved;
+    public override event EventHandler<ComPortEventArgs>? SystemComPortRemoved;
 }
