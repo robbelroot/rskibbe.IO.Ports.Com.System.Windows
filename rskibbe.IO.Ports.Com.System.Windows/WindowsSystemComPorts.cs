@@ -4,14 +4,12 @@ using System.Text.RegularExpressions;
 
 namespace rskibbe.IO.Ports.Com.System.Windows;
 
-public class WindowsSystemComPorts : SystemComPorts, IDisposable
+public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
 {
 
     const string QUERY = "SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 or EventType = 3";
 
     protected ManagementEventWatcher? watcher;
-
-    public override List<string> ExistingPorts { get; }
 
     private bool _disposed;
 
@@ -25,9 +23,8 @@ public class WindowsSystemComPorts : SystemComPorts, IDisposable
 
     public bool IgnoreComOne { get; set; }
 
-    protected WindowsSystemComPorts()
+    protected WindowsSystemComPorts() : base()
     {
-        ExistingPorts = new List<string>();
         State = ComWatcherState.NONE;
         IgnoreComOne = true;
     }
@@ -122,19 +119,19 @@ public class WindowsSystemComPorts : SystemComPorts, IDisposable
         }
     }
 
-    protected virtual void OnSystemComPortAdded(ComPortEventArgs e)
+    protected override void OnSystemComPortAdded(ComPortEventArgs e)
     {
         _synchronizationContext!.Post(new SendOrPostCallback(x =>
         {
-            SystemComPortAdded?.Invoke(this, e);
+            OnSystemComPortAdded(e);
         }), null);
     }
 
-    protected virtual void OnSystemComPortRemoved(ComPortEventArgs e)
+    protected override void OnSystemComPortRemoved(ComPortEventArgs e)
     {
         _synchronizationContext!.Post(new SendOrPostCallback(x =>
         {
-            SystemComPortRemoved?.Invoke(this, e);
+            OnSystemComPortRemoved(e);
         }), null);
     }
 
@@ -228,7 +225,4 @@ public class WindowsSystemComPorts : SystemComPorts, IDisposable
 
     public event EventHandler? StoppedWatchingPorts;
 
-    public override event EventHandler<ComPortEventArgs>? SystemComPortAdded;
-
-    public override event EventHandler<ComPortEventArgs>? SystemComPortRemoved;
 }
