@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\rskibbe.IO.Ports.Com.System.Windows\rskibbe.IO.Ports.Com.System.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="rskibbe.IO.Ports.Com">
+      <HintPath>..\..\rskibbe.IO.Ports.Com\rskibbe.IO.Ports.Com\bin\Debug\net6.0\rskibbe.IO.Ports.Com.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

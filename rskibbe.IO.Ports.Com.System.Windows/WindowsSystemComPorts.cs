@@ -1,4 +1,5 @@
 ﻿using rskibbe.IO.Ports.Com.ValueObjects;
+using System.Diagnostics;
 using System.Management;
 using System.Text.RegularExpressions;
 
@@ -7,7 +8,11 @@ namespace rskibbe.IO.Ports.Com.System.Windows;
 public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
 {
 
-    const string QUERY = "SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 or EventType = 3";
+    const int DeviceArrival = 2;
+
+    const int DeviceRemoval = 3;
+
+    static readonly string _query = $"SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = {DeviceArrival} or EventType = {DeviceRemoval}";
 
     protected ManagementEventWatcher? watcher;
 
@@ -34,7 +39,7 @@ public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
         var winPorts = new WindowsSystemComPorts();
         winPorts._synchronizationContext = synchronizationContext ?? SynchronizationContext.Current;
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
-        winPorts.watcher = new ManagementEventWatcher(QUERY);
+        winPorts.watcher = new ManagementEventWatcher(_query);
         winPorts.watcher.Stopped += winPorts.Watcher_Stopped;
         winPorts.watcher.EventArrived += winPorts.Watcher_EventArrived;
         var usedPortNames = await winPorts.ListUsedPortNamesAsync();
@@ -102,28 +107,68 @@ public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
         OnStoppedWatchingPorts(EventArgs.Empty);
     }
 
-    private async void Watcher_EventArrived(object sender, EventArrivedEventArgs e)
+    private static readonly object _existingPortsLocker = new object();
+
+    private void Watcher_EventArrived(object sender, EventArrivedEventArgs e)
     {
-        var availablePorts = await ListUsedPortNamesAsync();
-        var removedPorts = ExistingPorts.Where(x => !availablePorts.Contains(x)).ToList();
-        var addedPorts = availablePorts.Where(x => !ExistingPorts.Contains(x)).ToList();
-        foreach (var addedPort in addedPorts)
+#pragma warning disable CA1416 // Plattformkompatibilität überprüfen
+        var eventType = Convert.ToInt32(e.NewEvent.GetPropertyValue("EventType"));
+#pragma warning restore CA1416 // Plattformkompatibilität überprüfen
+
+        if (eventType == DeviceArrival)
         {
+            HandleDeviceArrival();
+            return;
+        }
+
+        if (eventType == DeviceRemoval)
+        {
+            HandleDeviceRemoval();
+            return;
+        }
+    }
+
+    private async void HandleDeviceArrival()
+    {
+        var availablePorts = await ListUsedPortNamesAsync()
+            .ConfigureAwait(false);
+        string? addedPort;
+        lock (_existingPortsLocker)
+        {
+            addedPort = availablePorts.SingleOrDefault(x => !ExistingPorts.Contains(x));
+            if (addedPort == null)
+                return;
+            if (ExistingPorts.Contains(addedPort))
+                return;
             ExistingPorts.Add(addedPort);
+        }
+        if (addedPort != null)
             OnSystemComPortAdded(new ComPortEventArgs(addedPort));
-        }
-        foreach (var removedPort in removedPorts)
+    }
+
+    private async void HandleDeviceRemoval()
+    {
+        var availablePorts = await ListUsedPortNamesAsync()
+            .ConfigureAwait(false);
+        string? removedPort;
+        lock (_existingPortsLocker)
         {
+            removedPort = ExistingPorts.SingleOrDefault(x => !availablePorts.Contains(x));
+            if (removedPort == null)
+                return;
+            if (!ExistingPorts.Contains(removedPort))
+                return;
             ExistingPorts.Remove(removedPort);
-            OnSystemComPortRemoved(new ComPortEventArgs(removedPort));
         }
+        if (removedPort != null)
+            OnSystemComPortRemoved(new ComPortEventArgs(removedPort));
     }
 
     protected override void OnSystemComPortAdded(ComPortEventArgs e)
     {
         _synchronizationContext!.Post(new SendOrPostCallback(x =>
         {
-            OnSystemComPortAdded(e);
+            base.OnSystemComPortAdded(e);
         }), null);
     }
 
@@ -131,13 +176,14 @@ public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
     {
         _synchronizationContext!.Post(new SendOrPostCallback(x =>
         {
-            OnSystemComPortRemoved(e);
+            base.OnSystemComPortRemoved(e);
         }), null);
     }
 
     public override async Task<IEnumerable<byte>> ListUsedPortIdsAsync()
     {
-        var usedPortNames = await ListUsedPortNamesAsync();
+        var usedPortNames = await ListUsedPortNamesAsync()
+            .ConfigureAwait(false);
         var usedPortIds = new List<byte>();
         foreach (var portName in usedPortNames)
         {
@@ -159,7 +205,8 @@ public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
         var query = "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0";
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         using var searcher = new ManagementObjectSearcher(scope, query);
-        var searchResults = await Task.Run(() => searcher.Get());
+        var searchResults = await Task.Run(() => searcher.Get())
+            .ConfigureAwait(false);
         var portObjects = searchResults.Cast<ManagementBaseObject>().ToList();
 #pragma warning restore CA1416 // Plattformkompatibilität überprüfen
         // DeviceID - COM1
