@@ -1,5 +1,4 @@
 ﻿using rskibbe.IO.Ports.Com.ValueObjects;
-using System.Diagnostics;
 using System.Management;
 using System.Text.RegularExpressions;
 
@@ -7,13 +6,14 @@ namespace rskibbe.IO.Ports.Com.System.Windows;
 
 public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
 {
+    public const int DEVICE_ARRIVAL = 2;
 
-    const int DeviceArrival = 2;
+    public const int DEVICE_REMOVAL = 3;
 
-    const int DeviceRemoval = 3;
+    static readonly object _existingPortsLocker = new object();
 
-    static readonly string _query = $"SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = {DeviceArrival} or EventType = {DeviceRemoval}";
-
+    static readonly string _query = $"SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = {DEVICE_ARRIVAL} or EventType = {DEVICE_REMOVAL}";
+            
     protected ManagementEventWatcher? watcher;
 
     private bool _disposed;
@@ -107,21 +107,19 @@ public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
         OnStoppedWatchingPorts(EventArgs.Empty);
     }
 
-    private static readonly object _existingPortsLocker = new object();
-
     private void Watcher_EventArrived(object sender, EventArrivedEventArgs e)
     {
 #pragma warning disable CA1416 // Plattformkompatibilität überprüfen
         var eventType = Convert.ToInt32(e.NewEvent.GetPropertyValue("EventType"));
 #pragma warning restore CA1416 // Plattformkompatibilität überprüfen
 
-        if (eventType == DeviceArrival)
+        if (eventType == DEVICE_ARRIVAL)
         {
             HandleDeviceArrival();
             return;
         }
 
-        if (eventType == DeviceRemoval)
+        if (eventType == DEVICE_REMOVAL)
         {
             HandleDeviceRemoval();
             return;
