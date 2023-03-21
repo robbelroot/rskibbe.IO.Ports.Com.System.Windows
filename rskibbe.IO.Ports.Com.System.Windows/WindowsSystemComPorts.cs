@@ -25,7 +25,7 @@ public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
 
     public bool CanStartWatching => State == ComWatcherState.NONE || State == ComWatcherState.STOPPED;
 
-    public bool CanStopWatching => State == ComWatcherState.STOPPED;
+    public bool CanStopWatching => State == ComWatcherState.STARTED;
 
     public bool IgnoreComOne { get; set; }
 
