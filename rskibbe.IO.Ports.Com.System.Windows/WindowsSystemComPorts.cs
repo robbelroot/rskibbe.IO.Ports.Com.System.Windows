@@ -6,6 +6,7 @@ namespace rskibbe.IO.Ports.Com.System.Windows;
 
 public class WindowsSystemComPorts : SystemComPortsBase, IDisposable
 {
+
     public const int DEVICE_ARRIVAL = 2;
 
     public const int DEVICE_REMOVAL = 3;

@@ -19,16 +19,16 @@ public partial class Form1 : Form
     {
         _windowsSystemComPorts = await WindowsSystemComPorts.BuildAsync();
         _windowsSystemComPorts.StartWatchingPorts();
-        _windowsSystemComPorts.SystemComPortAdded += _windowsSystemComPorts_SystemComPortAdded;
-        _windowsSystemComPorts.SystemComPortRemoved += _windowsSystemComPorts_SystemComPortRemoved;
+        _windowsSystemComPorts.SystemComPortAdded += WindowsSystemComPorts_SystemComPortAdded;
+        _windowsSystemComPorts.SystemComPortRemoved += WindowsSystemComPorts_SystemComPortRemoved;
     }
 
-    private void _windowsSystemComPorts_SystemComPortAdded(object? sender, ComPortEventArgs e)
+    private void WindowsSystemComPorts_SystemComPortAdded(object? sender, ComPortEventArgs e)
     {
         Debug.WriteLine($"Connected: {e.PortName}");
     }
 
-    private void _windowsSystemComPorts_SystemComPortRemoved(object? sender, ComPortEventArgs e)
+    private void WindowsSystemComPorts_SystemComPortRemoved(object? sender, ComPortEventArgs e)
     {
         Debug.WriteLine($"Disconnected: {e.PortName}");
     }
